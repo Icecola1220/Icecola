@@ -25,9 +25,11 @@ chrome_options.add_argument('--hide-scrollbars')  # 隐藏滚动条, 应对一�
 # 设置实例化浏览器，及设置
 
 # txxt = ''  # 初始化，第一条对比文本
+#txt = [1, 2, 3]
+#txt_emoji = [1, 2, 3]
 txt = ['','','','','','','','','','']
 txt_emoji = ['','','','','','','','','','']
-txt_def = ''
+txt_def = []
 
 
 def telegram_send(message):
@@ -82,7 +84,7 @@ def crawler():
         text = '第 ' + str(page) + ' 名:  ' + value_name + ' ' + value_shouyi + '\n'
 
         if txt[page - 1] == text:
-            pass
+            txt_emoji[page - 1] = text
         else:
             txt[page - 1] = text
             txt_emoji[page - 1] = '✅' + text
