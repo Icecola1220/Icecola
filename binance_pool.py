@@ -25,9 +25,9 @@ chrome_options.add_argument('--hide-scrollbars')  # 隐藏滚动条, 应对一�
 # 设置实例化浏览器，及设置
 
 # txxt = ''  # 初始化，第一条对比文本
-txt = [1, 2, 3]
-txt_emoji = [1, 2, 3]
-txt_def = ""
+txt = ['','','','','','','','','','']
+txt_emoji = ['','','','','','','','','','']
+txt_def = ''
 
 
 def telegram_send(message):
@@ -65,7 +65,7 @@ def crawler():
     # loct = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) #获取当前的实时时间
     # print(loct)
 
-    for page in range(1, 4):  # 其实这个page是这个列表数据的列数。top10列
+    for page in range(1, 11):  # 其实这个page是这个列表数据的列数。top10列
 
         # 这是币种信息
         page_name = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[1]/div/div/div[2]'
