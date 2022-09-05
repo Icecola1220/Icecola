@@ -23,14 +23,19 @@ chrome_options.add_argument('--hide-scrollbars')  # 隐藏滚动条, 应对一�
 
 
 # 设置实例化浏览器，及设置
-# browser = webdriver.Chrome("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver", options=chrome_options)
+
 # txxt = ''  # 初始化，第一条对比文本
+txt = [1, 2, 3]
+txt_emoji = [1, 2, 3]
+txt_def = ""
 
 
 def telegram_send(message):
     # Telegram_API链接信息配置
     bot_token = '5695810571:AAHUkIGjCwDMFQWLBzADRLN54IWqvtd2Kwg'  # Telegram_bot私钥
     bot_chatID = 'icecola_news'  # 频道名称
+    #bot_token = '5321232286:AAGIDNJJZsSJrOFvuBR6tk3zMqn30_qagn0'  # Telegram_bot私钥
+    #bot_chatID = 'icecola_new1'  # 频道名称
     # bot_message ="Testing"
     send_text = 'https://api.telegram.org/bot' + bot_token + '/sendMessage?chat_id=@' + bot_chatID + '&text=' + message
     # print(send_text)
@@ -40,8 +45,8 @@ def telegram_send(message):
 
 # 爬取币安poolTop10数据
 def crawler():
-    text = ''
-
+    text = ""
+    #browser = webdriver.Chrome("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver", options=chrome_options)
     browser = webdriver.Chrome('/bin/chromedriver', options=chrome_options)  # linux运行地址
     browser.set_window_size(1440, 900)  # 设置屏幕大小，不同大小，展示样式都不同，需要注意
     # browser.maximize_window  #设置最大化浏览器
@@ -60,7 +65,7 @@ def crawler():
     # loct = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) #获取当前的实时时间
     # print(loct)
 
-    for page in range(1, 11):  # 其实这个page是这个列表数据的列数。top10列
+    for page in range(1, 4):  # 其实这个page是这个列表数据的列数。top10列
 
         # 这是币种信息
         page_name = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[1]/div/div/div[2]'
@@ -74,7 +79,13 @@ def crawler():
         value_name = browser.find_element(By.XPATH, page_name).text  # 定位到的标签属性赋给point
         value_shouyi = browser.find_element(By.XPATH, page_shouyi).text  # 定位到的标签属性赋给point
 
-        text = text + '第 ' + str(page) + ' 名:  ' + value_name + ' ' + value_shouyi + '\n'
+        text = '第 ' + str(page) + ' 名:  ' + value_name + ' ' + value_shouyi + '\n'
+
+        if txt[page - 1] == text:
+            pass
+        else:
+            txt[page - 1] = text
+            txt_emoji[page - 1] = '✅' + text
         # print(text)
         # point = browser.find_element(By.XPATH, page_mint_value) #流动性挖矿量
         # print(point.text)
@@ -83,30 +94,33 @@ def crawler():
         # point = browser.find_element(By.XPATH, jiaoyiliang)    #交易量
         # print(point.text)
     loct = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-
     end_time = time.time()
     end_time = (end_time - start_time) / 60
     print("耗时: {:.2f}分钟".format(end_time))
-
     #print(text)
-
     browser.quit()
     # return '第' + str(i) + '次' + ':' + loct + '\n' + text
-    return text
+    return txt, txt_emoji
 
 
 if __name__ == "__main__":
-    txt = ""  # 设置初始化文本，对比推送消息，有变化则推送，反之亦然
     i = 0  # 循环数值
-    while i < 9999:
+    while True:
         i += 1
         print('第', i, '次开始运行：')
         try:
-            text = crawler()
-            if txt != text:
-                txt = text
-                telegram_send(txt)
+            txt, txt_emoji = crawler()
+
+            tt = "" #tt为循环，从列表中拉出文本
+            if txt_def != txt:
+                txt_def = txt
+                for t in txt_emoji:
+                    tt += t
+                telegram_send(tt)
+                #print("发送成功")
+                #print(txt_emoji)
             else:
+                #print("没有变化")
                 pass
 
         except Exception as e:
