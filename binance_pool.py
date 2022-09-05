@@ -5,11 +5,12 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 # import time  #用于对请求加延时，爬取速度太快容易被反爬
 from time import sleep  # 同上
-import time  #用与获取实时时间
+import time  # 用与获取实时时间
 
-start_time = time.time()   #程序开始时间
-#创建错误日志记录
-logging.basicConfig(filename="test.log", filemode="w", format="%(asctime)s %(name)s:%(levelname)s:%(message)s", datefmt="%d-%M-%Y %H:%M:%S", level=logging.DEBUG)
+start_time = time.time()  # 程序开始时间
+# 创建错误日志记录
+logging.basicConfig(filename="Error.log", filemode="w", format="%(asctime)s %(name)s:%(levelname)s:%(message)s",
+                    datefmt="%d-%M-%Y %H:%M:%S", level=logging.ERROR)
 
 crawler_url = 'https://www.binance.com/zh-CN/swap/pool'  # 设置需要爬的链接
 # 基本浏览器设置
@@ -19,9 +20,11 @@ chrome_options.add_argument('--headless')  # 无头显示浏览器
 chrome_options.add_argument('--disable-gpu')
 chrome_options.add_argument('blink-settings=imagesEnabled=false')  # 不加载图片, 提升速度
 chrome_options.add_argument('--hide-scrollbars')  # 隐藏滚动条, 应对一些特殊页面
+
+
 # 设置实例化浏览器，及设置
 # browser = webdriver.Chrome("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver", options=chrome_options)
-
+# txxt = ''  # 初始化，第一条对比文本
 
 
 def telegram_send(message):
@@ -35,11 +38,13 @@ def telegram_send(message):
     # print(response)
 
 
+# 爬取币安poolTop10数据
 def crawler():
     text = ''
 
     browser = webdriver.Chrome('/bin/chromedriver', options=chrome_options)  # linux运行地址
     browser.set_window_size(1440, 900)  # 设置屏幕大小，不同大小，展示样式都不同，需要注意
+    # browser.maximize_window  #设置最大化浏览器
 
     browser.get(crawler_url)  # 打开要爬取的网页
     sleep(1)
@@ -80,30 +85,37 @@ def crawler():
     loct = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
     end_time = time.time()
-    end_time = (end_time - start_time)/60
+    end_time = (end_time - start_time) / 60
     print("耗时: {:.2f}分钟".format(end_time))
 
-    print(text)
+    #print(text)
 
     browser.quit()
-    return '第'+str(i)+'次'+':'+loct + '\n' + text
+    # return '第' + str(i) + '次' + ':' + loct + '\n' + text
+    return text
 
 
 if __name__ == "__main__":
-    i = 0
+    txt = ""  # 设置初始化文本，对比推送消息，有变化则推送，反之亦然
+    i = 0  # 循环数值
     while i < 9999:
         i += 1
         print('第', i, '次开始运行：')
         try:
-            telegram_send(crawler())
+            text = crawler()
+            if txt != text:
+                txt = text
+                telegram_send(txt)
+            else:
+                pass
+
         except Exception as e:
             print('第', i, '次运行的错误')
-            logging.exception(e)    #捕获一个错误,并打印        continue
+            logging.exception(e)  # 捕获一个错误,并打印        continue
         # crawler()
         # telegram_send(str(i))
         print('第', i, '次结束')
-        #sleep(10)
+        # sleep(10)
 
 # 抓去一次binance数据，存入x；
 # 拿到x推送到telegram
-
