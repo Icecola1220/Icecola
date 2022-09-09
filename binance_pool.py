@@ -2,12 +2,13 @@ import requests
 import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service  # 导入service服务进程
-from selenium.webdriver import Keys
+# from selenium.webdriver import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 # import time  #用于对请求加延时，爬取速度太快容易被反爬
 from time import sleep  # 同上
 import time  # 用与获取实时时间
+from mydb import insertDB
 
 # 创建错误日志记录
 logging.basicConfig(filename="Error.log", filemode="w", format="%(asctime)s %(name)s:%(levelname)s:%(message)s",
@@ -61,12 +62,11 @@ def telegram_send(message):
 
 
 # 爬取币安poolTop10数据
+
 def crawler():
-    On_Off = False  #判定是否发送消息
-    c_service = Service('/bin/chromedriver')  # 引入chromedriver服务进程
-    c_service.command_line_args()
-    c_service.start()
-    # browser = webdriver.Chrome("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver",options=chrome_options)
+    On_Off = False  # 判定是否发送消息
+
+    #browser = webdriver.Chrome("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver",options=chrome_options)
     browser = webdriver.Chrome('/bin/chromedriver', options=chrome_options)  # linux运行地址
     browser.set_window_size(1440, 900)  # 设置屏幕大小，不同大小，展示样式都不同，需要注意
     # browser.maximize_window  #设置最大化浏览器
@@ -89,14 +89,16 @@ def crawler():
         # 这是币种信息
         page_name = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[1]/div/div/div[2]'
         # 这是流动性挖矿USDT
-        # page_mint_value = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[2]/div/div[1]'
+        page_mint_value = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[2]/div/div[1]'
         # 这是收益率
         page_shouyi = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[3]/div/div[1]'
         # 这是交易量USDT
-        # jiaoyiliang = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[5]/div'
+        jiaoyiliang = f'//*[@id="pool-container"]/div[4]/div[1]/div/div[2]/div[{page}]/div/div[1]/div/div[5]/div'
 
         value_name = browser.find_element(By.XPATH, page_name).text  # 定位到的标签属性赋给point
         value_shouyi = browser.find_element(By.XPATH, page_shouyi).text  # 定位到的标签属性赋给point
+        value_mint = browser.find_element(By.XPATH, page_mint_value).text  # 流动性挖矿量
+        value_jiaoyiliang = browser.find_element(By.XPATH, jiaoyiliang).text  # 交易量
 
         text = '第 ' + str(page) + ' 名:  ' + value_name + ' ' + value_shouyi + '\n'
 
@@ -108,11 +110,9 @@ def crawler():
             txt_emoji[page - 1] = '✅' + text
             On_Off = True
 
-        # # 添加token_price波动值
-        # onehour, oneday, oneweek = token_price(value_name.split("/")[0])
-        # txt[page - 1] += f'  {onehour}, {oneday}, {oneweek}'+'\n'
-        # txt_emoji[page - 1] += f'  {onehour}, {oneday}, {oneweek}'+'\n'
+        insertDB(loct, page, value_name, value_shouyi, value_mint, value_jiaoyiliang)
 
+        # 添加token_price波动值
         # point = browser.find_element(By.XPATH, page_mint_value) #流动性挖矿量
         # print(point.text)
         # point = browser.find_element(By.XPATH, page_shouyi)  #收益率
@@ -131,7 +131,6 @@ def crawler():
         pass
     print(txt_emoji)
     browser.quit()
-    c_service.stop()
 
 
 if __name__ == "__main__":
@@ -151,7 +150,6 @@ if __name__ == "__main__":
         # end_time = time.time()
         # end_time = end_time - start_time
         # print("耗时: {:.2f}秒".format(end_time))
-
         # print('第', i, '次结束')
         # sleep(10)
 
