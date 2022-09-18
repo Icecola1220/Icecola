@@ -1,8 +1,7 @@
 import json
-import sys
-import pandas as pd
-import os
+import re
 import time
+from selenium.webdriver.chrome.service import Service
 from db_twitter import *
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -13,7 +12,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 # 变量区#
 TIMEOUT = 10  ### 测试的时候，各个地方的timeout可以设置的小一点，在实际程序运行的时候需要设置的更大一点
-userID_list = []  # 创建推特User列表
+userID_list = [ ]  # 创建推特User列表
 baseUrl = 'https://www.twitter.com'  # 访问网址
 start = time.time()
 
@@ -40,9 +39,10 @@ def init(url):
     chromeOptions.add_argument('--hide-scrollbars')  # 隐藏滚动条, 应对一些特殊页面
     # 这个吊毛方法是开启性能日志，默认状态是关闭，输出getlog是‘brower’日志，开启后输出性能日志，re少不了他
     capabilities = DesiredCapabilities.CHROME
-    capabilities['goog:loggingPrefs'] = {"performance": "ALL"}  # newer: goog:loggingPrefs
+    capabilities[ 'goog:loggingPrefs' ] = {"performance": "ALL"}  # newer: goog:loggingPrefs
     # 开始正式装载进浏览器驱动中。。。
-    driver = webdriver.Chrome("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver",
+    s = Service("/Users/icecola/Documents/我的知识体系/Python改变世界/chromedriver")
+    driver = webdriver.Chrome(service=s,
                               options=chromeOptions, desired_capabilities=capabilities)
     # 隐藏浏览器指纹信息
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": js})
@@ -93,7 +93,7 @@ def getUserInfo(driver, userPageUrl):
     except:
         followingNum = 1000  # 如果为整数则为1000
     # 输出，并返回基本信息
-    print('输出首发用户信息： ' , '  |  ', name, '  |  ', str(uid), '  |  ', intro, '  |  ', followingNum, '  |  ')
+    print('输出首发用户信息： ', '  |  ', name, '  |  ', str(uid), '  |  ', intro, '  |  ', followingNum, '  |  ')
     return uid
 
 
@@ -117,9 +117,9 @@ def scrollUntilLoaded(driver):
     last_height = driver.execute_script("return document.body.scrollHeight")
     # print('获取底部信息：', last_height)
     page = 0
-    max_page = 30    #最大往下滚动扒拉读取页数
+    max_page = 30  # 最大往下滚动扒拉读取页数
     print('正在获取Following页数：')
-    while page < max_page:  #页数太多，内存爆掉
+    while page < max_page:  # 页数太多，内存爆掉
         # 执行将页面滑动到底部坐标的js操作。
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         sleep(TIMEOUT // 6)
@@ -141,71 +141,109 @@ def getFollowingResponse(getuid, driver):
     for row in driver.get_log('performance'):  # 获取后台输出的所有日志
         log_data = row
         # 读取浏览器后台的日志[message]里的信息
-        log_json = json.loads(log_data['message'])
-        log = log_json['message']
+        log_json = json.loads(log_data[ 'message' ])
+        log = log_json[ 'message' ]
         # 匹配对应可以获取用户信息的Following的日志文件
-        if log['method'] == 'Network.responseReceived' and 'Following' in log['params']['response']['url']:
+        if log[ 'method' ] == 'Network.responseReceived' and 'Following' in log[ 'params' ][ 'response' ][ 'url' ]:
             # 找到对应的requestId，每一个http请求，都有一个id，通过id，可以直接获取response
-            requestId = log['params']['requestId']
+            requestId = log[ 'params' ][ 'requestId' ]
             try:
                 # cdp为谷歌开发者协议，execute_cdp_cmd调用谷歌协议用的，根据requestid获得了response的json内容，爬虫的最爱
-                responseBody = driver.execute_cdp_cmd("Network.getResponseBody", {"requestId": requestId})['body']
+                responseBody = driver.execute_cdp_cmd("Network.getResponseBody", {"requestId": requestId})[ 'body' ]
                 # print(responseBody)
                 # 将获得json给解码，仅仅一行，读了1小时源码，2022年09月14日。
                 decodeFollowingReponse(responseBody)
-            except:
+            except Exception as e:
                 print('本次录入失败')
+                print(e)
                 pass
-    print('当前已完成录入', len(userID_list), '人')
+    print('当前已完成录入', len(uidlistDB()), '人')
 
 
 # 解析FollowingResponse的，解析完将用户信息存入list，并最后抛出这一页的推特用户数量
 def decodeFollowingReponse(responseBody):
+    user_list = [ ]  # 装载每次解码的数据list
     responseBody = json.loads(responseBody)
-    allInstructions = responseBody['data']['user']['result']['timeline']['timeline']['instructions']
+    allInstructions = responseBody[ 'data' ][ 'user' ][ 'result' ][ 'timeline' ][ 'timeline' ][ 'instructions' ]
     # 找到藏着推特用户数据的entries列表
     for instruction in allInstructions:
-        if instruction['type'] == 'TimelineAddEntries':
-            allEntries = instruction['entries']
+        if instruction[ 'type' ] == 'TimelineAddEntries':
+            allEntries = instruction[ 'entries' ]
             break
     for ids in range(len(allEntries) - 2):  # 每次都会多两个，最后两个是我们不需要的
-        result = allEntries[ids]['content']['itemContent']['user_results']['result']
+        result = allEntries[ ids ][ 'content' ][ 'itemContent' ][ 'user_results' ][ 'result' ]
         if result.get('legacy'):
-            userContent = result['legacy']
-            name = userContent['name']  # 获取网名
-            intro = userContent['description']  # 获取推特介绍
-            uid = userContent['screen_name']  # 获取推特id
-            followers_count = userContent['followers_count']  # 获取该推特用户的粉丝数
-            friends_count = userContent['friends_count']  # 获取该用户主动关注的数量
-            zh_cn = is_chinese(intro)
-            insertDB(uid, name, friends_count, followers_count, zh_cn, intro)
-            userID_list.append(uid)
-            print('|', end='')
+            userContent = result[ 'legacy' ]
+            name = userContent[ 'name' ]  # 获取网名
+            intro = userContent[ 'description' ]  # 获取推特介绍
+            uid = userContent[ 'screen_name' ]  # 获取推特id
+            followers_count = userContent[ 'followers_count' ]  # 获取该推特用户的粉丝数
+            friends_count = userContent[ 'friends_count' ]  # 获取该用户主动关注的数量
+            user_list.append([ uid, name, friends_count, followers_count, intro ])
+    #print(user_list)
+    userRule(user_list)  # 进入规则筛选阶段，并发送数据库，和续上Userid
 
 
-#   增加中文识别，判定是否为中文kol
-def is_chinese(string):
-    """
-    检查整个字符串是否包含中文
-    :param string: 需要检查的字符串
-    :return: bool
-    """
-    for ch in string:
-        if u'\u4e00' <= ch <= u'\u9fff':
-            return True
-
-    return False
+#   增加re语言识别，判定是否为中文kol
+def userRule(userinfo_list):
+    # user_list[uid,name,主动关注数，粉丝数，info]
+    # list[45, '隔壁老王', 2, 900, '你好im a bot上の取扱']
+    # 遍历list中的userinfo信息，粉丝低于1000,pass
+    userRule_list = [ x for x in userinfo_list if x[ 3 ] > 100 ]
+    # 去重录入，需要联系数据库，这里写错了，先注释掉
+    # userRule_list = list(set([tuple(i) for i in userRule_list]))
+    # 根据粉丝数量来从大到小排序
+    userRule_list = sorted(userRule_list, key=lambda x: x[ 3 ], reverse=True)
+    # print(userRule_list)
+    # 如果中文字符在字符串中数量最多，则判断为中文，同时保留其他主要语种
+    count_jp = count_cn = count_en = count_ko = count_other = 0
+    jp = re.compile(r'[\u3040-\u309F\u30A0-\u30FF]')  # 匹配为日文
+    ko = re.compile(r'[\uAC00-\uD7A3]')  # 匹配韩文
+    cn = re.compile(r'[\u4e00-\u9fa5]')  # 匹配中文
+    en = re.compile(r'[a-zA-z]')  # 匹配英文
+    # 统计list中的info介绍字符串语言信息：
+    for u in userRule_list:
+        ii = u[4]
+        # print(ii)
+        if jp.search(ii):
+            count_jp += 1
+        elif cn.search(ii):
+            count_cn += 1
+        elif en.search(ii):
+            count_en += 1
+        elif ko.search(ii):
+            count_ko += 1
+        else:
+            count_other += 1
+        # 根据统计的不同语言字符数量，对list进行插入语言种类
+        # ("uid","推特名称","主动关注数","粉丝数","是否中文","个人简介")
+        if max(count_jp, count_cn, count_en, count_ko) == count_cn and count_cn > 0:
+            u.insert(4, 'CN')
+            insertDB(u[0], u[1], u[2], u[3], u[4], u[5])
+        elif max(count_jp, count_cn, count_en, count_ko) == count_en and count_cn > 0:
+            u.insert(4, 'EN')
+            insertDB(u[0], u[1], u[2], u[3], u[4], u[5])
+        elif max(count_jp, count_cn, count_en, count_ko) == count_jp and count_cn > 0:
+            u.insert(4, 'JP')
+            insertDB(u[0], u[1], u[2], u[3], u[4], u[5])
+        elif max(count_jp, count_cn, count_en, count_ko) == count_ko and count_cn > 0:
+            u.insert(4, 'KO')
+            insertDB(u[0], u[1], u[2], u[3], u[4], u[5])
+        else:
+            u.insert(4, 'Unknown')
+            insertDB(u[0], u[1], u[2], u[3], u[4], u[5])
 
 
 if __name__ == '__main__':
     # 基本的浏览器环境配置，开启性能日志，加载cookie。隐藏浏览器指纹。等等均在此
     driver = init(baseUrl)
     # 录入第一个首发用户id
-    startUserUrl = baseUrl + '/' + 'icecola339'
+    startUserUrl = baseUrl + '/' + 'icecola1220'
     # 展示起始用户的基本信息情况
-    #userID_list.append(getUserInfo(driver, startUserUrl))
-    userID_list.append('icecola1220')
-    print(userID_list)
+    # userID_list.append(getUserInfo(driver, startUserUrl))
+
+    userID_list = ['icecola1220']
+    #print(userID_list)
     # 获取第一个推特用户的主页信息，[name, uid, intro, followingNum]，
     # sys.exit(0)
     # 这一段，直接三个函数（拉浏览器后台日志、json解码，持续滑动页面）被拉起，最后返回该用户主动关注的推特KOL数量
@@ -213,28 +251,29 @@ if __name__ == '__main__':
     # 开始循环拉取following列表，并持续将UID加入到list里面
 
     #########################################
-    #如果中断，请从此开始操作，手动录入userid！！
-    #userID_list = uidlistDB()
-    #print('数据库已录入： ', len(userID_list))
+    # 如果中断，请从此开始操作，手动录入userid！！
+    userID_list += uidlistDB()
+    print('数据库已录入： ', len(userID_list))
     #########################################
-    i = 0
+    i = 1618
     while i < 5000:
         i += 1
         try:
+            userID_list += uidlistDB()
             print(f'\n\n------------当前进入第{i}轮------------')
-            #UserUrl = baseUrl + '/' + userID_list[i - 1]
+            UserUrl = baseUrl + '/' + str(userID_list[i-1])
+            #print(UserUrl)
             #driver = init(UserUrl)
-            getFollowing(driver, userID_list[i - 1])  # 引入的info的用户列表
-            print(f'-----已完成第{i}轮录入,累计', len(userID_list), '人-----')
+            getFollowing(driver, userID_list[i-1])  # 引入的info的用户列表
+            print(f'-----已完成第{i}轮录入,累计', len(uidlistDB()), '人-----')
             end = time.time()
             runtime = end - start
             print('累计已经运行时间: %d 分 %d 秒' % (runtime // 60, runtime % 60))
-            #driver.close()
-            #driver.quit()
+            # driver.close()
+            # driver.quit()
         except:
-            #遇错则关闭所有浏览器，重启载入
+            # 遇错则关闭所有浏览器，重启载入
             driver.close()
             driver.quit()
-            UserUrl = baseUrl + '/' + userID_list[i - 1]
+            UserUrl = baseUrl + '/' + userID_list[i-1]
             driver = init(UserUrl)
-
